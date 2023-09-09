@@ -31,12 +31,14 @@ Drag mouse to place continuous
 
 Better performance in Chrome
 
+## Code
 
 Based on roblouie TypeScript Starter 
 
 Powerful and easy to use Vite-based build process that minifies then compresses with RoadRoller and ECT.
 
 https://github.com/roblouie/js13k-typescript-starter
+
 
 ```
 node -v
