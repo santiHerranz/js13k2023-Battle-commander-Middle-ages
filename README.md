@@ -8,7 +8,7 @@ Repository for my submit in js13kgames 2023 competition themed "13th Century"
 
 ![Big screenshot](https://github.com/santiHerranz/js13k2023-Battle-commander-Middle-ages/assets/961911/9d6b1d05-8fa9-4934-b209-b420ad9f24ec)
 
-<a href="https://js13kgames.com/games/battle-commander-middle-ages/index.html" target="_blank">▶PLAY</a>
+▶<a href="https://js13kgames.com/games/battle-commander-middle-ages/index.html" target="_blank">PLAY</a>
 
 Prepare for battle! 
 
