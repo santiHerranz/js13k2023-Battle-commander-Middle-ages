@@ -8,7 +8,7 @@ import { menuState } from './menu.state';
 import { inputKeyboard } from '@/core/input-keyboard';
 import { GameMap } from '@/game/game-map';
 import { Vector } from '@/core/vector';
-import { campaingState } from './campaing.state';
+import { campaingState } from './campaign.state';
 import { gameLevel } from '@/game/game-level';
 import { GameObject } from '@/game/game-object';
 import { Label } from '@/game/label';

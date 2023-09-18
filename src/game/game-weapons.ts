@@ -24,7 +24,7 @@ export function createCannonBall(artillery: Artillery, velocity: Vector, targetP
   cannonBall._zv = 0;
 
   cannonBall.explode = (position: Vector) => {
-    let explosion = new Explosion(position, sizeFactor, artillery.Team, 200, artillery);
+    let explosion = new Explosion(position, sizeFactor, artillery.Team, 50*1/sizeFactor, artillery);
     explosion.Mass = 1000
     cannonBall.explodeHandler(explosion)
   }

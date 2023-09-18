@@ -55,12 +55,12 @@ export class Level {
             [20, EntityType.Artillery, themeDef.dessert, 1.5, 0], // level 4
             [30, EntityType.Cavalry, themeDef.snow, 1.2, 1], // level 5
             [100, EntityType.None, themeDef.forest, 1.5, 1], // level 6
-            [150, EntityType.None, themeDef.forest, 1, 1], // level 7
-            [200, EntityType.None, themeDef.forest, 1, 1], // level 8
-            [150, EntityType.None, themeDef.forest, 1, 1], // level 9
-            [100, EntityType.None, themeDef.forest, 1.5, 1], // level 10
-            [100, EntityType.None, themeDef.forest, 1.5, 1], // level 11
-            [100, EntityType.None, themeDef.forest, 1.5, 1], // level 12
+            [120, EntityType.None, themeDef.forest, 1.3, 1], // level 7
+            [140, EntityType.None, themeDef.forest, 1.2, 1], // level 8
+            [180, EntityType.None, themeDef.forest, 1.1, 1], // level 9
+            [200, EntityType.None, themeDef.forest, 1, 1], // level 10
+            [240, EntityType.None, themeDef.forest, .9, 1], // level 11
+            [300, EntityType.None, themeDef.forest, .8, 1], // level 12
             [500, EntityType.None, themeDef.dessert, .7, 0], // level 13
         ]
 

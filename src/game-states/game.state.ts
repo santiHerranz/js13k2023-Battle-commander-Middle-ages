@@ -34,7 +34,7 @@ import { createArrow, createCannonBall } from '@/game/game-weapons';
 import { enemyTargetDesignation, manageUnitsCollision } from '@/game/game-manager';
 import { Level, gameLevel } from '@/game/game-level';
 import { GameMap } from '@/game/game-map';
-import { campaingState } from './campaing.state';
+import { campaingState } from './campaign.state';
 import { transparent } from '@/index';
 import { Label } from '@/game/label';
 import { Testudo } from '@/game/unit.testudo';

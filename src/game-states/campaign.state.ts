@@ -12,7 +12,7 @@ import { Vector } from '@/core/vector';
 import { LevelDefinition, gameLevel } from '@/game/game-level';
 import { time } from '@/index';
 
-class CampaingState implements State {
+class CampaignState implements State {
   Active: boolean = false;
 
   private _levelUnlock: number = 1;
@@ -86,13 +86,13 @@ class CampaingState implements State {
     Button.setHover([btn])
 
 
-    // btn = new Button(drawEngine.canvasWidth * .95, drawEngine.canvasHeight * .90, 60, 60, '🎲', "Cheat", 40);
-    // btn.clickEvent = () => {
-    //   gameLevel.levelIndex += 1
-    //   campaingState.levelUnlock = (gameState.level.levelIndex) + 1
-    //   this.onEnter()
-    // };
-    // this.buttons.push(btn);
+    btn = new Button(drawEngine.canvasWidth * .95, drawEngine.canvasHeight * .90, 60, 60, '🎲', "Cheat", 40);
+    btn.clickEvent = () => {
+      gameLevel.levelIndex += 1
+      campaingState.levelUnlock = (gameState.level.levelIndex) + 1
+      this.onEnter()
+    };
+    this.buttons.push(btn);
 
 
     inputMouse.eventMouseDown = () => this.mouseDown()
@@ -200,4 +200,4 @@ class CampaingState implements State {
   };
 }
 
-export const campaingState = new CampaingState();
+export const campaingState = new CampaignState();

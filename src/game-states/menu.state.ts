@@ -1,7 +1,7 @@
 import { State } from '@/core/state';
 import { drawEngine } from '@/core/draw-engine';
 import { gameStateMachine } from '@/game-state-machine';
-import { campaingState } from './campaing.state';
+import { campaingState } from './campaign.state';
 import { inputMouse } from '@/core/input-mouse';
 import { Button } from '@/core/button';
 import { GameMode, gameState } from './game.state';
@@ -76,7 +76,7 @@ class MenuState implements State {
     };
     this.buttons.push(btn);
 
-    btn = new Button(refX, this.posY, 500, 80, "Campaing");
+    btn = new Button(refX, this.posY, 500, 80, "Campaign");
     btn.clickCB = () => {
       gameStateMachine.setState(campaingState);
     };
