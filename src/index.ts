@@ -25,6 +25,7 @@ export let appSprite: HTMLImageElement
 
 let previousTime = 0;
 const interval = 1000 / FPS;
+let accumulatedTime = 0;
 
 export const soundWaitTime: Timer = new Timer(0)
 
@@ -45,25 +46,34 @@ const runApp = async (image: HTMLImageElement) => {
   // createGameStateMachine(summaryState);
 
   (function draw(currentTime: number) {
-
-
-    frame += 1
-    time = frame / FPS;
+    // Initialize previousTime on first frame
+    if (previousTime === 0) {
+      previousTime = currentTime;
+    }
 
     const delta = currentTime - previousTime;
+    previousTime = currentTime;
 
-    if (delta >= interval) {
-      previousTime = currentTime - (delta % interval);
+    // Cap delta to prevent large jumps (e.g., tab switching)
+    const cappedDelta = Math.min(delta, interval * 2);
+
+    // Accumulate time for fixed timestep
+    accumulatedTime += cappedDelta;
+
+    // Process fixed timestep updates
+    while (accumulatedTime >= interval) {
+      frame += 1;
+      time = frame / FPS;
 
       inputKeyboard.queryController();
       drawEngine.context.clearRect(0, 0, drawEngine.canvasWidth, drawEngine.canvasHeight);
-      // Although the game is currently set at 60fps, the state machine accepts a time passed to onUpdate
-      // If you'd like to unlock the framerate, you can instead use an interval passed to onUpdate to 
-      // adjust your physics so they are consistent across all frame rates.
-      // If you do not limit your fps or account for the interval your game will be far too fast or far too 
-      // slow for anyone with a different refresh rate than you.
-      gameStateMachine.getState().onUpdate(delta);
+      
+      // Use fixed interval for consistent physics
+      gameStateMachine.getState().onUpdate(interval);
+      
+      accumulatedTime -= interval;
     }
+
     requestAnimationFrame(draw);
   })(0);
 

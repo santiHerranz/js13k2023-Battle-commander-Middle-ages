@@ -17,46 +17,52 @@ import { SND_UNIT_DAMAGE } from "./game-sound";
 // Target only cluster enemies and avoid friend fire
 
 export const enemyTargetDesignation = (units: Unit[]): void => {
+  // Pre-filter units that need targeting (more efficient than filtering in forEach)
+  const unitsNeedingTarget = []
+  for (let i = 0; i < units.length && unitsNeedingTarget.length < 100; i++) {
+    const unit = units[i]
+    if (unit.attackCoolDownTimer.elapsed() && unit.targetPosition == undefined) {
+      unitsNeedingTarget.push(unit)
+    }
+  }
 
-  units
-    .filter(f => f.attackCoolDownTimer.elapsed())
-    .filter(f => f.targetPosition == undefined) // && f.targetNode == undefined
-    .sort(() => Math.random() - .5)
-    .slice(0, 100)
-    .forEach((unit: Unit) => {
-
-      let nearBy: Unit[] = units
-        .filter((f: Unit) => { return f.Team != unit.Team; })
-        .filter((h: Unit) => { return Vector.distance(unit.Position, h.Position) < unit.VisionRange; }) //
-        .map((otherUnit: Unit) => ({ unit: otherUnit, distance: Vector.distance(unit.Position, otherUnit.Position) }))
-        .sort((a: { unit: Unit; distance: number; }, b: { unit: Unit; distance: number; }) => a.distance - b.distance)
-        .map((entry: { unit: Unit; distance: number; }) => entry.unit);
-
-
-      // Artillery special target designator
-      // the farest enemy into shoot range
-      if (unit.type == EntityType.Artillery) {
-        nearBy = units
-          .filter((f: Unit) => { return f.Team != unit.Team; })
-          .filter((h: Unit) => { return Vector.distance(unit.Position, h.Position) < unit.shootRange; }) //
-          .map((otherUnit: Unit) => ({ unit: otherUnit, distance: Vector.distance(unit.Position, otherUnit.Position) }))
-          .sort((a: { unit: Unit; distance: number; }, b: { unit: Unit; distance: number; }) => b.distance - a.distance)
-          .map((entry: { unit: Unit; distance: number; }) => entry.unit);
-
+  // Process units needing targets
+  unitsNeedingTarget.forEach((unit: Unit) => {
+    const unitPos = unit.Position
+    const visionRange = unit.type == EntityType.Artillery ? unit.shootRange : unit.VisionRange
+    const isArtillery = unit.type == EntityType.Artillery
+    
+    // Collect nearby enemies with distances in one pass
+    const nearbyEnemies: { unit: Unit; distance: number }[] = []
+    
+    for (let i = 0; i < units.length; i++) {
+      const other = units[i]
+      if (other.Team == unit.Team) continue
+      
+      const dx = other.Position.x - unitPos.x
+      const dy = other.Position.y - unitPos.y
+      const distSq = dx * dx + dy * dy
+      const rangeSq = visionRange * visionRange
+      
+      if (distSq < rangeSq) {
+        const distance = Math.sqrt(distSq)
+        nearbyEnemies.push({ unit: other, distance })
       }
+    }
 
-
-      if (nearBy.length > 0) {
-        unit.targetPosition = nearBy[0].Position.clone();
-        // forget target after a while
-        setTimeout(() => {
-          unit.targetPosition = undefined;
-        }, rand(500, 800));
-      }
-
-      else
-        unit.targetPosition = undefined;
-    });
+    if (nearbyEnemies.length > 0) {
+      // Sort by distance (closest first, or farthest for artillery)
+      nearbyEnemies.sort((a, b) => isArtillery ? b.distance - a.distance : a.distance - b.distance)
+      
+      unit.targetPosition = nearbyEnemies[0].unit.Position.clone()
+      // forget target after a while
+      setTimeout(() => {
+        unit.targetPosition = undefined
+      }, rand(500, 800))
+    } else {
+      unit.targetPosition = undefined
+    }
+  })
 }
 
 
@@ -77,137 +83,121 @@ export const manageUnitsCollision = (units: Unit[], dt: number, damageGlobalFact
     // Retrieve all objects that share nodes with the unit
     const candidates = gameState.collisionTree.retrieve(unit);
 
-    candidates
-      //.filter((f: Unit) => { return !f.dirty })
-      .forEach((other: any) => {
+    // Early exit optimizations
+    for (let i = 0; i < candidates.length; i++) {
+      const other = candidates[i]
 
-        if (other instanceof CannonBall) return;
+      if (other instanceof CannonBall) continue
+      if (other === unit) continue
 
-        if (other === unit) return;
+      const minDist = (unit.Radius + other.Radius) / 2
+      const otherNewPos = other.Position.clone().add(other.Velocity.clone().scale(1 / 60))
 
-        const minDist = (unit.Radius + other.Radius) / 2;
+      // Paso 1: Detectar colisión
+      const dist = unitNewPos.distance(otherNewPos)
 
-        var otherNewPos = other.Position.clone().add(other.Velocity.clone().scale(1 / 60));
+      if (dist == 0) continue
+      if (dist > minDist) continue
 
-        // Paso 1: Detectar colisión
-        const dist = unitNewPos.distance(otherNewPos);
+      // var power = (Math.abs(unit.Velocity.x) + Math.abs(unit.Velocity.y)) +
+      //   (Math.abs(other.Velocity.x) + Math.abs(other.Velocity.y));
+      // power = power * 0.0482;
 
-        if (dist == 0) return;
+      // Paso 2: Calcular el vector de separación
+      const separation = new Vector(unitNewPos.x - other.Position.x, unitNewPos.y - other.Position.y);
+      const separationLength = separation.length();
+      const overlap = unit.Radius + other.Radius - separationLength;
 
-        if (dist > minDist) return;
+      // Paso 3: Mover los objetos para evitar solapamiento
+      const separationCorrection = separation.scale(overlap / (2 * separationLength));
 
+      if (other.type == EntityType.Testudo) {
+        unit.Position.add(separationCorrection.scale(.3));
 
+        unit.Velocity.scale(.5);
+        unit.Acceleration.scale(0);
+      } else {
+        other.Position.subtract(separationCorrection.scale(.1));
 
-        // var power = (Math.abs(unit.Velocity.x) + Math.abs(unit.Velocity.y)) +
-        //   (Math.abs(other.Velocity.x) + Math.abs(other.Velocity.y));
-        // power = power * 0.0482;
+        unit.Velocity.scale(.99);
+        unit.Acceleration.scale(.99);
+      }
 
-        // Paso 2: Calcular el vector de separación
-        const separation = new Vector(unitNewPos.x - other.Position.x, unitNewPos.y - other.Position.y);
-        const separationLength = separation.length();
-        const overlap = unit.Radius + other.Radius - separationLength;
+      other.Velocity.scale(.99);
+      other.Acceleration.scale(.99);
 
+      // Damage manager
 
-        // Paso 3: Mover los objetos para evitar solapamiento
-        const separationCorrection = separation.scale(overlap / (2 * separationLength));
+      // Attack unit damage
+      if ([EntityType.Troop, EntityType.Testudo, EntityType.Archer, EntityType.Knight, EntityType.Artillery, EntityType.Cavalry].includes(other.type) && other.Team != unit.Team) {
 
-        if (other.type == EntityType.Testudo) {
-          unit.Position.add(separationCorrection.scale(.3));
+        let obj = <Unit>other;
 
-          unit.Velocity.scale(.5);
-          unit.Acceleration.scale(0);
-        } else {
-          other.Position.subtract(separationCorrection.scale(.1));
+        // Damage if other is attacking
+        if (obj._currentAnim == obj._attackAnim && unit.stuntTime.elapsed()) { // || obj.type == EntityType.Cavalry )    && obj._currentAnim._finished
 
-          unit.Velocity.scale(.99);
-          unit.Acceleration.scale(.99);
-        }
-
-        other.Velocity.scale(.99);
-        other.Acceleration.scale(.99);
-
-
-        // Damage manager
-
-        // Attack unit damage
-        if ([EntityType.Troop, EntityType.Testudo, EntityType.Archer, EntityType.Knight, EntityType.Artillery, EntityType.Cavalry].includes(other.type) && other.Team != unit.Team) {
-
-          let obj = <Unit>other;
-
-          // Damage if other is attacking
-          if (obj._currentAnim == obj._attackAnim && unit.stuntTime.elapsed()) { // || obj.type == EntityType.Cavalry )    && obj._currentAnim._finished
-
-            if (unit.armorPoints == 0)
-              unit.healthPoints = Math.max(unit.healthPoints - obj.attackDamagePoints * damageGlobalFactor, 0);
-
-            unit.armorPoints = Math.max(unit.armorPoints - obj.attackDamagePoints * damageGlobalFactor, 0);
-
-
-            if (unit.healthPoints == 0) {
-              obj.killCount++;
-              unit.stuntTime.set(1)
-
-              // if (units.length < 10)
-              //   sound(SND_UNIT_KILLED);
-
-            } else {
-              unit.stuntTime.set(.2)
-
-              if (units.length < 10)
-                sound(SND_UNIT_DAMAGE);
-            }
-
-          }
-        }
-
-        // Enemy arrows damage and Explosion kill everyone
-        else if ((other instanceof Arrow && other.Team != unit.Team) || other instanceof Explosion) {
-
-          let obj = <Unit>other;
-
-
-          // direct massive damage
-          if (other instanceof Explosion) {
-
+          if (unit.armorPoints == 0)
             unit.healthPoints = Math.max(unit.healthPoints - obj.attackDamagePoints * damageGlobalFactor, 0);
 
-          } else {
-            // armor first then health
-            if (unit.armorPoints == 0)
-              unit.healthPoints = Math.max(unit.healthPoints - obj.attackDamagePoints * damageGlobalFactor, 0);
-            unit.armorPoints = Math.max(unit.armorPoints - obj.attackDamagePoints * damageGlobalFactor, 0);
-
-            // arrow auto destroy
-            other.healthPoints = 0;
-
-          }
-
-
-          unit.stuntTime.set(.2)
-
+          unit.armorPoints = Math.max(unit.armorPoints - obj.attackDamagePoints * damageGlobalFactor, 0);
 
           if (unit.healthPoints == 0) {
-            // sound(SND_UNIT_KILLED);
+            obj.killCount++;
+            unit.stuntTime.set(1)
 
-            if (obj.owner != undefined) {
-              if (obj.owner.Team != unit.Team) {
-                obj.scoreKill()
-                obj.owner.killCount++;
-              }
+            // if (units.length < 10)
+            //   sound(SND_UNIT_KILLED);
 
+          } else {
+            unit.stuntTime.set(.2)
 
-
-              else
-                obj.owner.friendKillCount++;
-            }
-
-            else
-              obj.killCount++;
+            if (units.length < 10)
+              sound(SND_UNIT_DAMAGE);
           }
 
         }
+      }
 
-      });
+      // Enemy arrows damage and Explosion kill everyone
+      else if ((other instanceof Arrow && other.Team != unit.Team) || other instanceof Explosion) {
+
+        let obj = <Unit>other;
+
+        // direct massive damage
+        if (other instanceof Explosion) {
+
+          unit.healthPoints = Math.max(unit.healthPoints - obj.attackDamagePoints * damageGlobalFactor, 0);
+
+        } else {
+          // armor first then health
+          if (unit.armorPoints == 0)
+            unit.healthPoints = Math.max(unit.healthPoints - obj.attackDamagePoints * damageGlobalFactor, 0);
+          unit.armorPoints = Math.max(unit.armorPoints - obj.attackDamagePoints * damageGlobalFactor, 0);
+
+          // arrow auto destroy
+          other.healthPoints = 0;
+
+        }
+
+        unit.stuntTime.set(.2)
+
+        if (unit.healthPoints == 0) {
+          // sound(SND_UNIT_KILLED);
+
+          if (obj.owner != undefined) {
+            if (obj.owner.Team != unit.Team) {
+              obj.scoreKill()
+              obj.owner.killCount++;
+            } else {
+              obj.owner.friendKillCount++;
+            }
+          } else {
+            obj.killCount++;
+          }
+        }
+
+      }
+    }
 
     unit.Velocity.add(unit.Acceleration);
 

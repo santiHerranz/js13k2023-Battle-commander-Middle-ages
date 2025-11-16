@@ -16,6 +16,10 @@ class CampaignState implements State {
   Active: boolean = false;
 
   private _levelUnlock: number = 1;
+  private cheatSequence: string[] = [];
+  private cheatCode: string[] = ['KeyU', 'KeyN', 'KeyL', 'KeyO', 'KeyC', 'KeyK'];
+  private lastKeyTime: number = 0;
+  private readonly CHEAT_TIMEOUT = 2000; // 2 seconds to complete sequence
 
 
   private maxCols = 4
@@ -94,6 +98,10 @@ class CampaignState implements State {
     };
     this.buttons.push(btn);
 
+    // Setup cheat code listener
+    this.cheatSequence = []
+    this.lastKeyTime = 0
+    document.addEventListener('keydown', this.handleCheatKeyDown)
 
     inputMouse.eventMouseDown = () => this.mouseDown()
   }
@@ -151,13 +159,12 @@ class CampaignState implements State {
     this.count = 0
     this.row = 0
     inputMouse.eventMouseDown = () => { }
+    // Remove cheat code listener
+    document.removeEventListener('keydown', this.handleCheatKeyDown)
   }
 
 
   onUpdate(dt: number) {
-
-
-
     this.gameMap.drawTileMap(drawEngine.context)
 
     const xCenter = drawEngine.context.canvas.width / 2;
@@ -190,6 +197,36 @@ class CampaignState implements State {
 
     if (inputKeyboard.isEscape) {
       gameStateMachine.setState(menuState);
+    }
+  }
+
+  private handleCheatKeyDown = (event: KeyboardEvent) => {
+    const currentTime = Date.now()
+    
+    // Reset sequence if too much time has passed
+    if (currentTime - this.lastKeyTime > this.CHEAT_TIMEOUT) {
+      this.cheatSequence = []
+    }
+
+    const expectedKey = this.cheatCode[this.cheatSequence.length]
+    
+    // If this is the next key in the sequence
+    if (event.code === expectedKey) {
+      this.cheatSequence.push(event.code)
+      this.lastKeyTime = currentTime
+      
+      // If sequence is complete, unlock all levels
+      if (this.cheatSequence.length === this.cheatCode.length) {
+        if (this._levelUnlock < gameLevel.level.length) {
+          this._levelUnlock = gameLevel.level.length + 1
+          this.cheatSequence = [] // Reset sequence
+          // Refresh buttons to show unlocked levels
+          this.onEnter()
+        }
+      }
+    } else if (this.cheatSequence.length > 0) {
+      // Wrong key pressed, reset sequence
+      this.cheatSequence = []
     }
   }
 

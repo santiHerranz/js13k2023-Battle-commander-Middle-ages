@@ -13,8 +13,14 @@ class DrawEngine {
   contextDeath: any;
   contextBlood: any;
 
-
   fogMemory: any[] = []
+  fogCanvasCache: HTMLCanvasElement | null = null
+  fogCtxCache: CanvasRenderingContext2D | null = null
+  lastFogPointsKey: string = ''
+  fogUpdateCounter: number = 0
+
+  sortedItemsCache: GameObject[] = []
+  itemsDirty: boolean = true
 
   constructor() {
     this.context = c2d.getContext('2d');
@@ -37,11 +43,41 @@ class DrawEngine {
   }
 
   drawItems(items: any, ctx: CanvasRenderingContext2D = drawEngine.context) {
-    items
-      .sort((a: GameObject, b: GameObject) => { return -((b.Position.y + b._z) * 10000 + b.Position.x) + ((a.Position.y + a._z) * 10000 + a.Position.x) })
-      .forEach((item: any) => {
-        item.draw(ctx)
+    // Cull objects outside viewport with margin for smooth scrolling
+    const margin = 100
+    const visibleItems = items.filter((item: GameObject) => {
+      const x = item.Position.x
+      const y = item.Position.y
+      const radius = item.Radius || 50
+      return x + radius >= -margin && 
+             x - radius <= this.canvasWidth + margin &&
+             y + radius >= -margin && 
+             y - radius <= this.canvasHeight + margin
+    })
+
+    // Only sort if items changed (different length or dirty flag)
+    if (this.itemsDirty || visibleItems.length !== this.sortedItemsCache.length) {
+      // Create sorted copy of visible items only
+      this.sortedItemsCache = [...visibleItems].sort((a: GameObject, b: GameObject) => { 
+        return -((b.Position.y + b._z) * 10000 + b.Position.x) + ((a.Position.y + a._z) * 10000 + a.Position.x) 
       })
+      this.itemsDirty = false
+    } else {
+      // Even if length is same, objects may have moved, so we need to re-sort
+      // But we can optimize by only sorting visible items
+      this.sortedItemsCache = [...visibleItems].sort((a: GameObject, b: GameObject) => { 
+        return -((b.Position.y + b._z) * 10000 + b.Position.x) + ((a.Position.y + a._z) * 10000 + a.Position.x) 
+      })
+    }
+    
+    // Draw from cached sorted array
+    this.sortedItemsCache.forEach((item: any) => {
+      item.draw(ctx)
+    })
+  }
+
+  markItemsDirty() {
+    this.itemsDirty = true
   }
 
   drawText(text: string, fontSize: number, x: number, y: number, color = 'white', textAlign: 'center' | 'left' | 'right' = 'center') {
@@ -170,7 +206,6 @@ class DrawEngine {
    * @param points 
    */
   drawDynamicFogOfWar(points: Vector[]) {
-
     // fog hole radius
     let size = 800
 
@@ -191,24 +226,45 @@ class DrawEngine {
     // get unique memory points
     const memoryUniquePoints = [...new Map(lastFramesPoints.map(item => [item['key'], item])).values()];
 
-    let ctx = c2d.cloneNode().getContext('2d');
-    this.contextFogOfWar = ctx
+    // Create cache key from points to detect changes
+    const pointsKey = memoryUniquePoints.map(p => p.key).sort().join(',')
+    
+    // Only update fog canvas if points changed or every 3 frames (reduce update frequency)
+    const shouldUpdate = pointsKey !== this.lastFogPointsKey || this.fogUpdateCounter % 3 === 0
+    
+    if (shouldUpdate) {
+      // Initialize cache canvas if needed
+      if (!this.fogCanvasCache) {
+        this.fogCanvasCache = c2d.cloneNode()
+        this.fogCtxCache = this.fogCanvasCache.getContext('2d')!
+      }
 
-    ctx.fillStyle = 'rgb(0,0,0,.95)'
+      const ctx = this.fogCtxCache!
+      
+      // Clear previous fog
+      ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight)
+      
+      ctx.fillStyle = 'rgb(0,0,0,.95)'
 
-    memoryUniquePoints
-      .forEach(point => {
+      memoryUniquePoints.forEach(point => {
         ctx.beginPath();
         ctx.arc(point.x, point.y, size / 2, 0, 2 * Math.PI);
         ctx.fill();
       })
 
-    ctx.filter = "blur(10px)";
+      // Apply blur once to cached canvas
+      ctx.filter = "blur(10px)";
+      ctx.globalCompositeOperation = 'source-over';
+      
+      this.lastFogPointsKey = pointsKey
+    }
 
+    this.fogUpdateCounter++
+
+    // Draw cached fog canvas
     this.context.globalCompositeOperation = 'destination-in';
-    this.context.drawImage(ctx.canvas, 0, 0);
+    this.context.drawImage(this.fogCanvasCache!, 0, 0);
     this.context.globalCompositeOperation = 'source-over';
-
   }
 
 

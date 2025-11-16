@@ -89,6 +89,8 @@ class GameState implements State {
 
 
   blood: Particle[] = []
+  bloodDirty: boolean = true
+  deathDirty: boolean = true
 
   gameData: GameResultData = {
     result: 0,
@@ -188,6 +190,8 @@ class GameState implements State {
     this.units = []
     this.projectiles = []
     this.blood = []
+    this.bloodDirty = true
+    this.deathDirty = true
 
     // Everyone quiet
     this.units.forEach(unit => {
@@ -402,10 +406,16 @@ class GameState implements State {
     })
 
     // Remove death stuff
+    const bloodLengthBefore = this.blood.length
     this.units = this.units.filter((f: Unit) => { return f.Active && f.healthPoints > 0 });
     this.projectiles = this.projectiles.filter((f: GameObject) => { return f.Active && f.healthPoints > 0 });
     this.labels = this.labels.filter((f: GameObject) => { return f.Active });
     this.blood = this.blood.filter((f: Particle) => { return f.Active && f.ttl > 0 });
+    
+    // Mark blood dirty if particles were removed
+    if (this.blood.length !== bloodLengthBefore) {
+      this.bloodDirty = true
+    }
 
 
     // Updates
@@ -413,7 +423,12 @@ class GameState implements State {
 
     // Update particles
     this.blood.forEach((item: Particle) => {
+      const posBefore = item.Position.clone()
       item._update(dt)
+      // Mark dirty if particle moved
+      if (!posBefore.equals(item.Position)) {
+        this.bloodDirty = true
+      }
     })
 
     // Update buttons
@@ -488,10 +503,25 @@ class GameState implements State {
     drawEngine.drawLine(new Vector(x, 0), new Vector(x, drawEngine.canvasHeight), { stroke: 'blue', fill: '' })
 
 
-    // Blood and death layer
-    drawEngine.drawItems(this.blood, drawEngine.contextBlood)
-    drawEngine.context.globalAlpha = .2
-    drawEngine.context.drawImage(drawEngine.contextBlood.canvas, 0, 0);
+    // Blood and death layer - only update when dirty
+    if (this.bloodDirty && this.blood.length > 0) {
+      drawEngine.contextBlood.clearRect(0, 0, drawEngine.canvasWidth, drawEngine.canvasHeight)
+      drawEngine.drawItems(this.blood, drawEngine.contextBlood)
+      this.bloodDirty = false
+    }
+    
+    // Draw cached layers
+    if (this.blood.length > 0) {
+      drawEngine.context.globalAlpha = .2
+      drawEngine.context.drawImage(drawEngine.contextBlood.canvas, 0, 0);
+      drawEngine.context.globalAlpha = 1
+    }
+    
+    if (this.deathDirty) {
+      // Death layer is only updated when units die, so we don't need to clear/redraw every frame
+      this.deathDirty = false
+    }
+    
     drawEngine.context.globalAlpha = .4
     drawEngine.context.drawImage(drawEngine.contextDeath.canvas, 0, 0);
     drawEngine.context.globalAlpha = 1
@@ -616,6 +646,7 @@ class GameState implements State {
 
     let p = new Particle(position.clone(), size.clone(), team);
     this.blood.push(p);
+    this.bloodDirty = true
   }
 
 
@@ -1039,6 +1070,7 @@ class GameState implements State {
       // sound(SND_BLOOD)
 
       unit.draw(drawEngine.contextDeath, true)
+      this.deathDirty = true
 
       if (unit.Team == Team.Alpha)
         this.kills.bravo += 1

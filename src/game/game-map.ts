@@ -10,6 +10,7 @@ export class GameMap {
 
     tileMap: TileMap;
     imageCache: any;
+    blurredCache: any;
     theme: number = 0;
 
     dim: Vector
@@ -29,6 +30,7 @@ export class GameMap {
     Init() {
         this.tileMap = new TileMap(this.dim, this.size, this.seed);
         this.imageCache = undefined
+        this.blurredCache = undefined
     }
 
     drawTileMap(ctx: CanvasRenderingContext2D, blurValue = 15) {
@@ -37,7 +39,7 @@ export class GameMap {
         if (!this.imageCache) {
 
             var palette = [
-                ["#fff", "#28691e", "#38792e", "#48893e", "#564d40"],    // forest
+                ["#fff", "#1a4f15", "#2a5f1f", "#3a6f2a", "#564d40"],    // forest (darker greens)
                 ["#F0E2AE", "#F2CA9D", "#E7A885", "#CE8A7A", "#C37F7C"], // dessert
                 ["#FE6927", "#FFD85F", "#FEE8AA", "#FCEC9C", "#FFE293"], // other
                 ["#fff", "#ddd", "#bbb", "#999", "#777"], // snow
@@ -46,34 +48,33 @@ export class GameMap {
 
             var colors = palette[this.theme]
 
-            let ctx = c2d.cloneNode().getContext('2d');
+            let tempCtx = c2d.cloneNode().getContext('2d');
             this.tileMap._map.forEach(row => {
                 row.forEach((tile: GameTile) => {
-                    ctx.fillStyle = colors[tile._tileType]
-                    ctx.beginPath()
-                    ctx.rect(tile._position.x, tile._position.y, tile._tileSize.x, tile._tileSize.y)
-                    ctx.fill()
+                    tempCtx.fillStyle = colors[tile._tileType]
+                    tempCtx.beginPath()
+                    tempCtx.rect(tile._position.x, tile._position.y, tile._tileSize.x, tile._tileSize.y)
+                    tempCtx.fill()
 
                 })
 
             })
 
-            this.imageCache = ctx
-        } else {
-            var x = w / 2, y = h / 2
+            this.imageCache = tempCtx
 
-            // Aplicar efecto de desenfoque
-            ctx.filter = 'contrast(120%) brightness(150%) saturated(200%)';
-            ctx.filter = 'blur(' + blurValue + 'px)';
-            ctx.globalAlpha = .8
-
-            ctx.drawImage(this.imageCache.canvas, x - w / 2, y - h / 2);
-
-            // Limpiar el efecto de desenfoque
-            ctx.filter = 'none';
-            ctx.globalAlpha = 1
-
+            // Pre-render blurred version once
+            let blurCtx = c2d.cloneNode().getContext('2d');
+            blurCtx.filter = 'contrast(110%) brightness(120%) saturate(150%) blur(' + blurValue + 'px)';
+            blurCtx.globalAlpha = .8
+            blurCtx.drawImage(this.imageCache.canvas, 0, 0);
+            blurCtx.filter = 'none';
+            blurCtx.globalAlpha = 1
+            this.blurredCache = blurCtx
         }
+
+        // Use pre-rendered blurred cache (no filter operations per frame)
+        var x = w / 2, y = h / 2
+        ctx.drawImage(this.blurredCache.canvas, x - w / 2, y - h / 2);
 
     }
 
