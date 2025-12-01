@@ -34,5 +34,12 @@
     "vite": "vite serve",
     "tsc": "tsc --watch --noEmit"
   },
+  "overrides": {
+    "body-parser": ">=1.20.3",
+    "ws": ">=8.17.1",
+    "rollup": ">=3.29.5",
+    "node-forge": ">=1.3.2",
+    "serialize-javascript": ">=6.0.2"
+  },
   "author": "Rob Louie"
 }
