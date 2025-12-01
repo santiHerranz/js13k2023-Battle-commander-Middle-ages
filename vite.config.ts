@@ -9,7 +9,7 @@ import { statSync } from 'fs';
 const { execFileSync } = require('child_process');
 import ect from 'ect-bin';
 
-const htmlMinify = require('html-minifier');
+const htmlMinify = require('html-minifier-terser');
 const tmp = require('tmp');
 const ClosureCompiler = require('google-closure-compiler').compiler;
 
